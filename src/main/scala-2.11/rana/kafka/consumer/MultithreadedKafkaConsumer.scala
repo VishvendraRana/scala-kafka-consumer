@@ -3,6 +3,7 @@ package rana.kafka.consumer
 import java.util.{Collections, Properties}
 
 import org.apache.kafka.clients.consumer.{ConsumerConfig, KafkaConsumer, OffsetAndMetadata}
+import org.apache.kafka.common.TopicPartition
 
 import scala.collection.JavaConversions._
 
@@ -14,8 +15,8 @@ class MultithreadedKafkaConsumer(val topic : String = "test",
                                  val props : Properties) extends Runnable {
   override def run(): Unit = {
     val consumer = new KafkaConsumer[String, String](props)
-
-    consumer.subscribe(Collections.singletonList(topic))
+    val topicPartition = new TopicPartition(topic, partition)
+    consumer.assign(Collections.singletonList(topicPartition))
 
     while (true) {
       val records = consumer.poll(1000)
@@ -28,11 +29,9 @@ class MultithreadedKafkaConsumer(val topic : String = "test",
       }
 
       if (records.count() > 0) {
-        for (topicPartition <- records.partitions()) {
-          val lastOffset = records.toList.get(records.count() - 1).offset()
-          consumer.commitAsync(Collections.singletonMap(topicPartition, new OffsetAndMetadata(lastOffset + 1)),
-            new OffsetCommitCb)
-        }
+        val lastOffset = records.toList.get(records.count() - 1).offset()
+        consumer.commitAsync(Collections.singletonMap(topicPartition, new OffsetAndMetadata(lastOffset + 1)),
+          new OffsetCommitCb)
       }
     }
   }
